@@ -1,0 +1,43 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    DOCKERHUB_USERNAME:  "arn:aws:secretsmanager:us-east-1:999999999999:secret:docker-dUVKxp:USERNAME"
+    DOCKERHUB_PASS:      "arn:aws:secretsmanager:us-east-1:999999999999:secret:docker-dUVKxp:PASSWORD"
+    AWS_REGION:          "arn:aws:secretsmanager:us-east-1:999999999999:secret:api-app-WaJ2kT:AWS_REGION"
+    AWS_ACCOUNT_ID:      "arn:aws:secretsmanager:us-east-1:999999999999:secret:api-app-WaJ2kT:AWS_ACCOUNT_ID"
+    ECR_REPO_NAME:       "arn:aws:secretsmanager:us-east-1:999999999999:secret:api-app-WaJ2kT:ECR_APP_REPO_NAME"
+
+phases:
+  pre_build:
+    commands:
+      - echo "===== Setting Environment Variables ====="
+      - ECR_BASE_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+      - ECR_REPOSITORY_URI="${ECR_BASE_URL}/${ECR_REPO_NAME}"
+      - ECR_IMAGE_COMMIT_HASH=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)
+      - ECR_IMAGE_TAG=${ECR_IMAGE_COMMIT_HASH:=latest}
+
+      - echo "AWS_REGION = $AWS_REGION"
+      - echo "AWS_ACCOUNT_ID = $AWS_ACCOUNT_ID"
+      - echo "ECR_REPO_NAME = $ECR_REPO_NAME"
+      - echo "ECR_BASE_URL = $ECR_BASE_URL"
+      - echo "ECR_REPOSITORY_URI = $ECR_REPOSITORY_URI"
+      - echo "ECR_IMAGE_TAG = $ECR_IMAGE_TAG"
+      - echo "ECR_IMAGE_COMMIT_HASH = $ECR_IMAGE_COMMIT_HASH"
+
+      - echo "===== Logging in to Amazon ECR ====="
+      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_BASE_URL"
+
+      - echo "===== Logging in to Docker ====="
+      - docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_PASS"
+
+  build:
+    commands:
+      - echo "===== Building the Docker Image ====="
+      - docker build -t "$ECR_REPOSITORY_URI" -t "$ECR_REPOSITORY_URI:latest" -t "$ECR_REPOSITORY_URI:$ECR_IMAGE_TAG" .
+
+  post_build:
+    commands:
+      - echo "===== Build completed on $(date) ====="
+      - echo "===== Pushing the Docker Image ====="
+      - docker push "$ECR_REPOSITORY_URI:latest"
