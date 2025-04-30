@@ -1,4 +1,4 @@
-version: 0.2
+version: 0.3
 
 env:
   secrets-manager:
@@ -12,32 +12,33 @@ phases:
   pre_build:
     commands:
       - echo "===== Setting Environment Variables ====="
-      - ECR_BASE_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-      - ECR_REPOSITORY_URI="${ECR_BASE_URL}/${ECR_REPO_NAME}"
-      - ECR_IMAGE_COMMIT_HASH=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)
-      - ECR_IMAGE_TAG=${ECR_IMAGE_COMMIT_HASH:=latest}
+      - export ECR_BASE_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+      - export ECR_REPOSITORY_URI="${ECR_BASE_URL}/${ECR_REPO_NAME}"
+      - export ECR_IMAGE_COMMIT_HASH="$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)"
+      - export ECR_IMAGE_TAG="${ECR_IMAGE_COMMIT_HASH:-latest}"
 
-      - echo "AWS_REGION = $AWS_REGION"
-      - echo "AWS_ACCOUNT_ID = $AWS_ACCOUNT_ID"
-      - echo "ECR_REPO_NAME = $ECR_REPO_NAME"
-      - echo "ECR_BASE_URL = $ECR_BASE_URL"
-      - echo "ECR_REPOSITORY_URI = $ECR_REPOSITORY_URI"
-      - echo "ECR_IMAGE_TAG = $ECR_IMAGE_TAG"
-      - echo "ECR_IMAGE_COMMIT_HASH = $ECR_IMAGE_COMMIT_HASH"
+      - echo "AWS_REGION = ${AWS_REGION}"
+      - echo "AWS_ACCOUNT_ID = ${AWS_ACCOUNT_ID}"
+      - echo "ECR_REPO_NAME = ${ECR_REPO_NAME}"
+      - echo "ECR_BASE_URL = ${ECR_BASE_URL}"
+      - echo "ECR_REPOSITORY_URI = ${ECR_REPOSITORY_URI}"
+      - echo "ECR_IMAGE_TAG = ${ECR_IMAGE_TAG}"
+      - echo "ECR_IMAGE_COMMIT_HASH = ${ECR_IMAGE_COMMIT_HASH}"
 
       - echo "===== Logging in to Amazon ECR ====="
-      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_BASE_URL"
+      - aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_BASE_URL}"
 
-      - echo "===== Logging in to Docker ====="
-      - docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_PASS"
+      - echo "===== Logging in to DockerHub ====="
+      - docker login --username "${DOCKERHUB_USERNAME}" --password "${DOCKERHUB_PASS}"
 
   build:
     commands:
       - echo "===== Building the Docker Image ====="
-      - docker build -t "$ECR_REPOSITORY_URI" -t "$ECR_REPOSITORY_URI:latest" -t "$ECR_REPOSITORY_URI:$ECR_IMAGE_TAG" .
+      - docker build -t "${ECR_REPOSITORY_URI}" -t "${ECR_REPOSITORY_URI}:latest" -t "${ECR_REPOSITORY_URI}:${ECR_IMAGE_TAG}" .
 
   post_build:
     commands:
       - echo "===== Build completed on $(date) ====="
       - echo "===== Pushing the Docker Image ====="
-      - docker push "$ECR_REPOSITORY_URI:latest"
+      - docker push "${ECR_REPOSITORY_URI}:latest"
+      - docker push "${ECR_REPOSITORY_URI}:${ECR_IMAGE_TAG}"

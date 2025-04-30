@@ -8,11 +8,14 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Build image
-      run: docker build . --file Dockerfile --target=app --tag app:$(date +%s)
+      - name: Get timestamp
+        id: vars
+        run: echo "TAG=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: docker build . --file Dockerfile --target=app --tag app:${{ env.TAG }}
